@@ -49,8 +49,6 @@ type protoFlag uint16
 const (
 	flagResponse protoFlag = 0x01 // only for response
 	flagError    protoFlag = 0x02 // only for response
-
-	flagResponseError protoFlag = flagResponse | flagError
 )
 
 func (me protoFlag) Has(flag protoFlag) bool {
@@ -366,8 +364,6 @@ func (me *protoTransfer) FromBinary(bin []byte) error {
 }
 
 func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
-	var msg IBinary
-
 	bin, err := stream.Read()
 	if nil != err {
 		return nil, nil, err
@@ -381,7 +377,7 @@ func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
 		return nil, nil, ErrBadProto
 	}
 
-	isError := hdr.flag.Has(flagError)
+	var msg IBinary
 
 	switch hdr.cmd {
 	case cmdPush:
@@ -400,7 +396,7 @@ func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
 		if request {
 			msg = &protoIdentify{}
 		} else {
-			if isError {
+			if hdr.flag.Has(flagError) {
 				msg = &protoError{}
 			} else {
 				msg = &protoTransfer{}
@@ -438,8 +434,13 @@ func replyError(stream *TcpStream, cmd protoCmd, Err int, Errs string) error {
 		errs = []byte(Errs)
 	}
 
+	flag := flagResponse
+	if Err != 0 {
+		flag |= flagError
+	}
+
 	msg := &protoError{
-		protoHeader: NewProtoHeader(cmd, flagResponse),
+		protoHeader: NewProtoHeader(cmd, flag),
 		err:         int32(Err),
 		errs:        errs,
 	}
