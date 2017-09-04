@@ -32,6 +32,8 @@ func (me *udfsNode) dial() (*TcpStream, error) {
 func (me *udfsNode) call(msg IBinary) error {
 	stream, err := me.dial()
 	if nil != err {
+		Log.Info("dial error:%v", err)
+
 		return err
 	}
 	defer stream.Close()

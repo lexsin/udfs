@@ -372,14 +372,28 @@ func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
 	hdr := &protoHeader{}
 	err = hdr.FromBinary(bin)
 	if nil != err {
+		Log.Info("read proto header error:%v", err)
+
 		return nil, nil, err
-	} else if request != hdr.flag.Has(flagResponse) {
+	}
+
+	isRequest := !hdr.flag.Has(flagResponse)
+	if request != isRequest {
+		Log.Info("read proto header dir error")
+
+		return nil, nil, ErrBadProto
+	}
+
+	cmd := hdr.cmd
+	if !cmd.IsGood() {
+		Log.Info("invalid proto cmd:%d", cmd)
+
 		return nil, nil, ErrBadProto
 	}
 
 	var msg IBinary
 
-	switch hdr.cmd {
+	switch cmd {
 	case cmdPush:
 		if request {
 			msg = &protoTransfer{}
@@ -404,9 +418,9 @@ func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
 		}
 	}
 
-	if nil == msg {
-		return nil, nil, ErrBadProto
-	} else if err = msg.FromBinary(bin); nil != err {
+	if err = msg.FromBinary(bin); nil != err {
+		Log.Info("read proto error:%v", err)
+
 		return nil, nil, err
 	} else {
 		return hdr, msg, nil
@@ -417,6 +431,8 @@ func protoWrite(stream *TcpStream, msg IBinary) error {
 	bin := make([]byte, msg.Size())
 	err := msg.ToBinary(bin)
 	if nil != err {
+		Log.Info("write proto error:%v", err)
+
 		return err
 	}
 

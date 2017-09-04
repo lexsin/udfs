@@ -36,12 +36,14 @@ var udfs *udfsEndPoint
 func udfsInit(role udfsRole) {
 	preInit()
 
-	if rolePublisher != role {
-		fileInit()
-	}
-
-	if roleConsumer != role {
+	switch role {
+	case rolePublisher:
 		dbInit()
+	case roleBroker:
+		fileInit()
+		dbInit()
+	case roleConsumer:
+		// do nothing
 	}
 
 	udfs = newEndPoint(role)

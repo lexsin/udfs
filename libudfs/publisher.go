@@ -19,6 +19,12 @@ func PublisherPush(bkdr Bkdr, digest, content []byte) error {
 		err = udfs.leader(bkdr).touch(bkdr, digest)
 	} else {
 		err = udfs.leader(bkdr).push(bkdr, 0, digest, content)
+		if nil != err {
+			return err
+		}
+
+		// if leader error, push to leader's followers
+		err = udfs.push(bkdr, 0, digest, content)
 	}
 	if nil != err {
 		return err

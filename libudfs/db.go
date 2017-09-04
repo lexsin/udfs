@@ -71,16 +71,6 @@ func (me *dbConf) eq() bool {
 	return true
 }
 
-func (me *dbConf) check() error {
-	for _, path := range me.Dirs {
-		if !FileName(path).DirExist() {
-			return ErrNoDir
-		}
-	}
-
-	return nil
-}
-
 const sizeofDbEntry = SizeofByte + 2*SizeofInt32 + DigestSize
 
 type dbEntry struct {
@@ -300,11 +290,6 @@ func dbLoadConf() error {
 			return err
 		}
 
-		err = dbconf.check()
-		if nil != err {
-			return err
-		}
-
 		if !dbconf.eq() {
 			// self is broker
 			// db config != etcd config
@@ -317,12 +302,7 @@ func dbLoadConf() error {
 		// db config NOT exist, load it from etcd
 		dbconf.Dirs = conf.Dirs
 
-		err := dbconf.check()
-		if nil != err {
-			return err
-		}
-
-		err = filename.SaveJson(dbconf)
+		err := filename.SaveJson(dbconf)
 		if nil != err {
 			return err
 		}

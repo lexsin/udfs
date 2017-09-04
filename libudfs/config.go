@@ -39,7 +39,7 @@ var (
 	thisHome     string
 	thisHost     string
 
-	thisNodeID = -1
+	thisNodeID = InvalidID
 	conf       = &Conf{}
 )
 
@@ -79,15 +79,14 @@ func getEtcd(path string, timeout time.Duration) ([]byte, error) {
 	} else if 1 != resp.Count {
 		Log.Error("get etcd:%s more kvs", ETCD_UDFS_CONFIG)
 
-		return nil, errors.New("")
-	}
+		return nil, errors.New("etcd more kvs")
+	} else {
+		buf := resp.Kvs[0].Value
 
-	var buf []byte
-	for _, v := range resp.Kvs {
-		buf = v.Value
-	}
+		Log.Info("get etcd:%s value:%s", ETCD_UDFS_CONFIG, string(buf))
 
-	return buf, nil
+		return buf, nil
+	}
 }
 
 func initConf() {
@@ -96,33 +95,50 @@ func initConf() {
 		os.Exit(StdErrError)
 	}
 
+	efmt := "etcd to json error:%s"
+
 	err = json.Unmarshal(buf, conf)
 	if nil != err {
-		Log.Error("get etcd json config error:%v", err)
+		Log.Error(efmt, err.Error())
 
 		os.Exit(StdErrError)
 	} else if nil == conf.Nodes || 0 == len(conf.Nodes) {
-		Log.Error("get etcd json config error:empty nodes")
+		Log.Error(efmt, "empty nodes")
 
 		os.Exit(StdErrError)
 	} else if nil == conf.Dirs || 0 == len(conf.Dirs) {
-		Log.Error("get etcd json config error:empty dirs")
+		Log.Error(efmt, "empty dirs")
 
 		os.Exit(StdErrError)
 	} else if 0 == conf.Port {
-		Log.Error("get etcd json config error:bad port")
+		Log.Error(efmt, "bad port")
 
 		os.Exit(StdErrError)
 	} else if 0 == conf.Live {
-		Log.Error("get etcd json config error:bad port")
+		Log.Error(efmt, "bad live")
 
 		os.Exit(StdErrError)
 	} else if 0 == conf.Port {
+		// use default port
 		conf.Port = UDFS_PORT
 	} else if conf.Replication < minReplication || conf.Replication > maxReplication {
+		// use default Replication
 		conf.Replication = deftReplication
 	}
 
+	// check dir exist
+	count := len(conf.Dirs)
+	for i := 0; i < count; i++ {
+		dir := FileName(conf.Dirs[i])
+
+		if !dir.DirExist() {
+			Log.Error("dir: %s not exist", dir.String())
+
+			os.Exit(StdErrNoDir)
+		}
+	}
+
+	// init this node id
 	for idx, node := range conf.Nodes {
 		if thisHost == node {
 			thisNodeID = idx
@@ -130,7 +146,7 @@ func initConf() {
 		}
 	}
 
-	if -1 == thisNodeID {
+	if InvalidID == thisNodeID {
 		Log.Error("etcd config nodes not include this-host:%s", thisHost)
 
 		os.Exit(StdErrError)
@@ -154,6 +170,12 @@ func initEnv() {
 	etcdNodeList = getEnv(ENV_ETCD_NODES)
 	etcdUser = os.Getenv(ENV_ETCD_USER)
 	etcdPass = os.Getenv(ENV_ETCD_PASS)
+
+	if Empty == etcdNodeList {
+		Log.Error("empty etcd node list")
+
+		os.Exit(StdErrError)
+	}
 
 	etcdNodes = strings.Split(etcdNodeList, ",")
 }
