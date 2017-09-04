@@ -1,3 +1,8 @@
 *.xls
 *.exe
 *.a
+
+broker/borker
+consumer/consumer
+publisher/publisher
+
