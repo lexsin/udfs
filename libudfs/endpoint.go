@@ -9,18 +9,18 @@ import (
 	. "asdf"
 )
 
-type udfsEndPoint struct {
-	nodes    []*udfsNode
-	self     *udfsNode
+type UdfsEndPoint struct {
+	nodes    []*UdfsNode
+	self     *UdfsNode
 	listener *net.TCPListener
-	role     udfsRole
+	role     UdfsRole
 }
 
-func newEndPoint(role udfsRole) *udfsEndPoint {
+func newEndPoint(role UdfsRole) *UdfsEndPoint {
 	count := len(conf.Nodes)
 
-	ep := &udfsEndPoint{
-		nodes: make([]*udfsNode, count+conf.Replication-1),
+	ep := &UdfsEndPoint{
+		nodes: make([]*UdfsNode, count+conf.Replication-1),
 		role:  role,
 	}
 
@@ -47,15 +47,15 @@ func newEndPoint(role udfsRole) *udfsEndPoint {
 	return ep
 }
 
-func (me *udfsEndPoint) hash(bkdr Bkdr) int {
+func (me *UdfsEndPoint) hash(bkdr Bkdr) int {
 	return int(bkdr) % len(me.nodes)
 }
 
-func (me *udfsEndPoint) leader(bkdr Bkdr) *udfsNode {
+func (me *UdfsEndPoint) leader(bkdr Bkdr) *UdfsNode {
 	return me.nodes[me.hash(bkdr)]
 }
 
-func (me *udfsEndPoint) group(bkdr Bkdr) []*udfsNode {
+func (me *UdfsEndPoint) group(bkdr Bkdr) []*UdfsNode {
 	// count: 5
 	// Replication: 2
 	// nodes: 5+2-1=6
@@ -68,14 +68,14 @@ func (me *udfsEndPoint) group(bkdr Bkdr) []*udfsNode {
 	return me.nodes[leader : leader+conf.Replication-1]
 }
 
-func (me *udfsEndPoint) followers(bkdr Bkdr) []*udfsNode {
+func (me *UdfsEndPoint) followers(bkdr Bkdr) []*UdfsNode {
 	group := me.group(bkdr)
 
 	return group[1:]
 }
 
-func (me *udfsEndPoint) Push(bkdr Bkdr, time Time32, digest, content []byte) error {
-	file := dbconf.File(bkdr, digest)
+func (me *UdfsEndPoint) Push(bkdr Bkdr, time Time32, digest, content []byte) error {
+	file := dbConf.File(bkdr, digest)
 
 	if !dbExist(bkdr, digest) {
 		file.Save(content)
@@ -87,7 +87,7 @@ func (me *udfsEndPoint) Push(bkdr Bkdr, time Time32, digest, content []byte) err
 	return me.push(bkdr, time, digest, content)
 }
 
-func (me *udfsEndPoint) push(bkdr Bkdr, time Time32, digest, content []byte) error {
+func (me *UdfsEndPoint) push(bkdr Bkdr, time Time32, digest, content []byte) error {
 	var err error
 
 	if me.self == me.leader(bkdr) {
@@ -104,8 +104,8 @@ func (me *udfsEndPoint) push(bkdr Bkdr, time Time32, digest, content []byte) err
 	return err
 }
 
-func (me *udfsEndPoint) Del(bkdr Bkdr, digest []byte) error {
-	file := dbconf.File(bkdr, digest)
+func (me *UdfsEndPoint) Del(bkdr Bkdr, digest []byte) error {
+	file := dbConf.File(bkdr, digest)
 
 	if dbExist(bkdr, digest) {
 		file.Delete()
@@ -116,7 +116,7 @@ func (me *udfsEndPoint) Del(bkdr Bkdr, digest []byte) error {
 	return me.del(bkdr, digest)
 }
 
-func (me *udfsEndPoint) del(bkdr Bkdr, digest []byte) error {
+func (me *UdfsEndPoint) del(bkdr Bkdr, digest []byte) error {
 	var err error
 
 	followers := me.followers(bkdr)
@@ -131,8 +131,8 @@ func (me *udfsEndPoint) del(bkdr Bkdr, digest []byte) error {
 	return err
 }
 
-func (me *udfsEndPoint) Find(bkdr Bkdr, digest []byte) error {
-	file := dbconf.File(bkdr, digest)
+func (me *UdfsEndPoint) Find(bkdr Bkdr, digest []byte) error {
+	file := dbConf.File(bkdr, digest)
 
 	if !dbExist(bkdr, digest) {
 		return ErrNoExist
@@ -143,7 +143,7 @@ func (me *udfsEndPoint) Find(bkdr Bkdr, digest []byte) error {
 	}
 }
 
-func (me *udfsEndPoint) find(bkdr Bkdr, digest []byte) error {
+func (me *UdfsEndPoint) find(bkdr Bkdr, digest []byte) error {
 	var err error
 
 	followers := me.followers(bkdr)
@@ -158,8 +158,8 @@ func (me *udfsEndPoint) find(bkdr Bkdr, digest []byte) error {
 	return err
 }
 
-func (me *udfsEndPoint) Pull(bkdr Bkdr, digest []byte) error {
-	file := dbconf.File(bkdr, digest)
+func (me *UdfsEndPoint) Pull(bkdr Bkdr, digest []byte) error {
+	file := dbConf.File(bkdr, digest)
 
 	if dbExist(bkdr, digest) && file.Exist() {
 		return nil
@@ -168,7 +168,7 @@ func (me *udfsEndPoint) Pull(bkdr Bkdr, digest []byte) error {
 	return me.pull(bkdr, digest)
 }
 
-func (me *udfsEndPoint) pull(bkdr Bkdr, digest []byte) error {
+func (me *UdfsEndPoint) pull(bkdr Bkdr, digest []byte) error {
 	var err error
 
 	followers := me.followers(bkdr)
@@ -183,9 +183,9 @@ func (me *udfsEndPoint) pull(bkdr Bkdr, digest []byte) error {
 	return err
 }
 
-func (me *udfsEndPoint) Touch(bkdr Bkdr, digest []byte) error {
+func (me *UdfsEndPoint) Touch(bkdr Bkdr, digest []byte) error {
 	time := NowTime32()
-	file := dbconf.File(bkdr, digest)
+	file := dbConf.File(bkdr, digest)
 
 	file.Touch(time)
 	dbAdd(bkdr, digest, time)
@@ -193,7 +193,7 @@ func (me *udfsEndPoint) Touch(bkdr Bkdr, digest []byte) error {
 	return me.touch(bkdr, digest)
 }
 
-func (me *udfsEndPoint) touch(bkdr Bkdr, digest []byte) error {
+func (me *UdfsEndPoint) touch(bkdr Bkdr, digest []byte) error {
 	var err error
 
 	followers := me.followers(bkdr)
@@ -208,7 +208,7 @@ func (me *udfsEndPoint) touch(bkdr Bkdr, digest []byte) error {
 	return err
 }
 
-func (me *udfsEndPoint) listen() {
+func (me *UdfsEndPoint) listen() {
 	for {
 		conn, err := me.listener.AcceptTCP()
 		if nil != err {
@@ -223,7 +223,7 @@ func (me *udfsEndPoint) listen() {
 
 // request handler
 //
-func (me *udfsEndPoint) handle(stream *TcpStream) error {
+func (me *UdfsEndPoint) handle(stream *TcpStream) error {
 	var stderr = 1
 
 	hdr, msg, err := protoRead(stream, true)
@@ -241,23 +241,23 @@ func (me *udfsEndPoint) handle(stream *TcpStream) error {
 
 	switch hdr.cmd {
 	case cmdPush:
-		obj := msg.(*protoTransfer)
+		obj := msg.(*ProtoTransfer)
 
 		err = me.Push(obj.bkdr, obj.time, obj.digest, obj.content)
 	case cmdPull:
-		obj := msg.(*protoIdentify)
+		obj := msg.(*ProtoIdentify)
 
 		err = me.Pull(obj.bkdr, obj.digest)
 	case cmdFind:
-		obj := msg.(*protoIdentify)
+		obj := msg.(*ProtoIdentify)
 
 		err = me.Find(obj.bkdr, obj.digest)
 	case cmdDel:
-		obj := msg.(*protoIdentify)
+		obj := msg.(*ProtoIdentify)
 
 		err = me.Del(obj.bkdr, obj.digest)
 	case cmdTouch:
-		obj := msg.(*protoIdentify)
+		obj := msg.(*ProtoIdentify)
 
 		err = me.Touch(obj.bkdr, obj.digest)
 	}
@@ -265,7 +265,7 @@ func (me *udfsEndPoint) handle(stream *TcpStream) error {
 	return err
 }
 
-func (me *udfsEndPoint) gc() {
+func (me *UdfsEndPoint) gc() {
 	var bucket [2]byte
 	var ticks uint64
 
@@ -277,7 +277,7 @@ func (me *udfsEndPoint) gc() {
 		select {
 		case <-chTick:
 			binary.BigEndian.PutUint16(bucket[:], uint16(ticks))
-			dbGc(bucket[:], func(file udfsFile) {
+			dbGc(bucket[:], func(file UdfsFile) {
 				file.Delete()
 			})
 			ticks++

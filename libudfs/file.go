@@ -5,50 +5,54 @@ import (
 	"fmt"
 )
 
-var fileLock = NewRwLock("udfs-file-lock", false)
+var dirLocks []*RwLock
 
-var locks []*RwLock
+func newDirLocks() []*RwLock {
+	count := len(conf.Dirs)
+	locks := make([]*RwLock, count)
 
-type udfsFile struct {
+	for i := 0; i < count; i++ {
+		locks[i] = NewRwLock(fmt.Sprintf("dir[%d]-locker", i), false)
+	}
+
+	return locks
+}
+
+func fileInit() {
+	dirLocks = newDirLocks()
+}
+
+type UdfsFile struct {
 	name FileName
 	idir byte
 }
 
-func fileInit() {
-	count := len(conf.Dirs)
-	locks = make([]*RwLock, count)
-
-	for i := 0; i < count; i++ {
-		locks[i] = NewRwLock(fmt.Sprintf("dir[%d]-lock", i), false)
-	}
-}
-
-func (me *udfsFile) String() string {
+func (me *UdfsFile) String() string {
 	return me.name.String()
 }
 
-func (me *udfsFile) rlock(handle func() error) error {
+func (me *UdfsFile) rhandle(handle func() error) error {
 	var err error
 
-	locks[me.idir].RHandle(func() {
+	dirLocks[me.idir].RHandle(func() {
 		err = handle()
 	})
 
 	return err
 }
 
-func (me *udfsFile) wlock(handle func() error) error {
+func (me *UdfsFile) whandle(handle func() error) error {
 	var err error
 
-	locks[me.idir].WHandle(func() {
+	dirLocks[me.idir].WHandle(func() {
 		err = handle()
 	})
 
 	return err
 }
 
-func (me *udfsFile) Delete() error {
-	err := me.wlock(func() error {
+func (me *UdfsFile) Delete() error {
+	err := me.whandle(func() error {
 		return me.name.Delete()
 	})
 	if nil != err {
@@ -58,8 +62,8 @@ func (me *udfsFile) Delete() error {
 	return err
 }
 
-func (me *udfsFile) Save(buf []byte) error {
-	err := me.wlock(func() error {
+func (me *UdfsFile) Save(buf []byte) error {
+	err := me.whandle(func() error {
 		return me.name.Save(buf)
 	})
 	if nil != err {
@@ -69,8 +73,8 @@ func (me *udfsFile) Save(buf []byte) error {
 	return err
 }
 
-func (me *udfsFile) Touch(Time Time32) error {
-	err := me.wlock(func() error {
+func (me *UdfsFile) Touch(Time Time32) error {
+	err := me.whandle(func() error {
 		return me.name.Touch(Time)
 	})
 	if nil != err {
@@ -80,10 +84,10 @@ func (me *udfsFile) Touch(Time Time32) error {
 	return err
 }
 
-func (me *udfsFile) Exist() bool {
+func (me *UdfsFile) Exist() bool {
 	exist := false
 
-	me.rlock(func() error {
+	me.rhandle(func() error {
 		exist = me.name.Exist()
 
 		return nil

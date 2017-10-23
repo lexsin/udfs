@@ -14,11 +14,15 @@ import (
 )
 
 const (
-	etcdTimeout     = 3 * time.Second
+	etcdTimeout = 3 * time.Second
+	deftLive    = 15552000 // 3600*24*30*6
+
 	minReplication  = 1
 	maxReplication  = 3
 	deftReplication = 2
+)
 
+const (
 	UDFS_PORT = 8290
 
 	ENV_ETCD_USER  = "APT_ETCD_USER"
@@ -32,12 +36,12 @@ const (
 )
 
 var (
-	etcdNodes    []string
-	etcdNodeList string
-	etcdUser     string
-	etcdPass     string
-	thisHome     string
-	thisHost     string
+	etcdNodes    []string // split from ENV_ETCD_NODES
+	etcdNodeList string   // ENV_ETCD_NODES
+	etcdUser     string   // ENV_ETCD_USER
+	etcdPass     string   // ENV_ETCD_PASS
+	thisHome     string   // ENV_THIS_HOME
+	thisHost     string   // ENV_THIS_HOST
 
 	thisNodeID = InvalidID
 	conf       = &Conf{}
@@ -51,6 +55,65 @@ type Conf struct {
 	Replication int      `json:"replication"`
 	Port        int      `json:"port"`
 	Live        Time32   `json:"live"`
+}
+
+func (me *Conf) setDefault() {
+	if 0 == me.Live {
+		me.Live = deftLive
+	}
+
+	if 0 == me.Port {
+		me.Port = UDFS_PORT
+	}
+
+	if me.Replication < minReplication || me.Replication > maxReplication {
+		// use default Replication
+		me.Replication = deftReplication
+	}
+}
+
+func (me *Conf) findNodeID(host string) int {
+	for idx, node := range me.Nodes {
+		if host == node {
+			return idx
+		}
+	}
+
+	return InvalidID
+}
+
+func (me *Conf) check() int {
+	if 0 == len(conf.Nodes) {
+		Log.Error("empty nodes")
+
+		return StdErrError
+	} else if 0 == len(conf.Dirs) {
+		Log.Error("empty dirs")
+
+		return StdErrError
+	}
+
+	count := len(me.Dirs)
+	for i := 0; i < count; i++ {
+		dir := FileName(me.Dirs[i])
+
+		if !dir.DirExist() {
+			Log.Error("dir: %s not exist", dir.String())
+
+			return StdErrNoDir
+		}
+	}
+
+	return 0
+}
+
+func initThisNodeID() {
+	thisNodeID = conf.findNodeID(thisHost)
+	if InvalidID == thisNodeID {
+		Log.Error("etcd config nodes not include this-host:%s", thisHost)
+
+		os.Exit(StdErrError)
+	}
 }
 
 func getEtcd(path string, timeout time.Duration) ([]byte, error) {
@@ -94,62 +157,17 @@ func initConf() {
 		os.Exit(StdErrError)
 	}
 
-	efmt := "etcd to json error:%s"
-
 	err = json.Unmarshal(buf, conf)
 	if nil != err {
-		Log.Error(efmt, err.Error())
+		Log.Error("etcd to json error:%s", err.Error())
 
 		os.Exit(StdErrError)
-	} else if nil == conf.Nodes || 0 == len(conf.Nodes) {
-		Log.Error(efmt, "empty nodes")
-
-		os.Exit(StdErrError)
-	} else if nil == conf.Dirs || 0 == len(conf.Dirs) {
-		Log.Error(efmt, "empty dirs")
-
-		os.Exit(StdErrError)
-	} else if 0 == conf.Port {
-		Log.Error(efmt, "bad port")
-
-		os.Exit(StdErrError)
-	} else if 0 == conf.Live {
-		Log.Error(efmt, "bad live")
-
-		os.Exit(StdErrError)
-	} else if 0 == conf.Port {
-		// use default port
-		conf.Port = UDFS_PORT
-	} else if conf.Replication < minReplication || conf.Replication > maxReplication {
-		// use default Replication
-		conf.Replication = deftReplication
+	} else if errno := conf.check(); 0 != errno {
+		os.Exit(errno)
 	}
 
-	// check dir exist
-	count := len(conf.Dirs)
-	for i := 0; i < count; i++ {
-		dir := FileName(conf.Dirs[i])
-
-		if !dir.DirExist() {
-			Log.Error("dir: %s not exist", dir.String())
-
-			os.Exit(StdErrNoDir)
-		}
-	}
-
-	// init this node id
-	for idx, node := range conf.Nodes {
-		if thisHost == node {
-			thisNodeID = idx
-			break
-		}
-	}
-
-	if InvalidID == thisNodeID {
-		Log.Error("etcd config nodes not include this-host:%s", thisHost)
-
-		os.Exit(StdErrError)
-	}
+	conf.setDefault()
+	initThisNodeID()
 }
 
 func getEnv(name string) string {
@@ -164,7 +182,7 @@ func getEnv(name string) string {
 }
 
 func initEnv() {
-	//thisHome = getEnv(ENV_THIS_HOME)
+	thisHome = getEnv(ENV_THIS_HOME)
 	thisHost = getEnv(ENV_THIS_HOST)
 	etcdNodeList = getEnv(ENV_ETCD_NODES)
 	etcdUser = os.Getenv(ENV_ETCD_USER)
@@ -174,9 +192,9 @@ func initEnv() {
 		Log.Error("empty etcd node list")
 
 		os.Exit(StdErrError)
+	} else {
+		etcdNodes = strings.Split(etcdNodeList, ",")
 	}
-
-	etcdNodes = strings.Split(etcdNodeList, ",")
 }
 
 func preInit() {

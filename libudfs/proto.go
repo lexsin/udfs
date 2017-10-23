@@ -9,23 +9,23 @@ import (
 	. "asdf"
 )
 
-type protoCmd byte
+type ProtoCmd byte
 
 const (
 	// publisher ==> leader
 	// leader ==> follower
-	cmdPush protoCmd = 0
+	cmdPush ProtoCmd = 0
 	// consumer ==> leader
 	// leader ==> follower
-	cmdPull protoCmd = 1
+	cmdPull ProtoCmd = 1
 	// none
-	cmdDel protoCmd = 2
+	cmdDel ProtoCmd = 2
 	// leader ==> follower
-	cmdFind protoCmd = 3
+	cmdFind ProtoCmd = 3
 	// publisher ==> leader
 	// leader ==> follower
-	cmdTouch protoCmd = 4
-	cmdEnd   protoCmd = 5
+	cmdTouch ProtoCmd = 4
+	cmdEnd   ProtoCmd = 5
 )
 
 var cmdStrings = [cmdEnd]string{
@@ -36,30 +36,30 @@ var cmdStrings = [cmdEnd]string{
 	cmdTouch: "touch",
 }
 
-func (me protoCmd) IsGood() bool {
+func (me ProtoCmd) IsGood() bool {
 	return me >= 0 && me < cmdEnd
 }
 
-func (me protoCmd) String() string {
+func (me ProtoCmd) String() string {
 	return cmdStrings[me]
 }
 
-type protoFlag uint16
+type ProtoFlag uint16
 
 const (
-	flagResponse protoFlag = 0x01 // only for response
-	flagError    protoFlag = 0x02 // only for response
+	flagResponse ProtoFlag = 0x01 // only for response
+	flagError    ProtoFlag = 0x02 // only for response
 )
 
-func (me protoFlag) Has(flag protoFlag) bool {
+func (me ProtoFlag) Has(flag ProtoFlag) bool {
 	return flag == (flag & me)
 }
 
-func (me protoFlag) IsGood() bool {
+func (me ProtoFlag) IsGood() bool {
 	return true
 }
 
-func (me protoFlag) String() string {
+func (me ProtoFlag) String() string {
 	buf := []byte("")
 
 	Append := func(s string) {
@@ -85,32 +85,32 @@ func (me protoFlag) String() string {
 
 const protoVersion = 0
 
-type protoHeader struct {
+type ProtoHeader struct {
 	version byte
-	cmd     protoCmd
-	flag    protoFlag
+	cmd     ProtoCmd
+	flag    ProtoFlag
 }
 
-func NewProtoHeader(cmd protoCmd, flag protoFlag) protoHeader {
-	return protoHeader{
+func NewProtoHeader(cmd ProtoCmd, flag ProtoFlag) ProtoHeader {
+	return ProtoHeader{
 		version: protoVersion,
 		cmd:     cmd,
 		flag:    flag,
 	}
 }
 
-func (me *protoHeader) String() string {
+func (me *ProtoHeader) String() string {
 	return fmt.Sprintf("version:%d cmd:%s flag:%s",
 		me.version,
 		me.cmd.String(),
 		me.flag.String())
 }
 
-func (me *protoHeader) Size() int {
+func (me *ProtoHeader) Size() int {
 	return 2*SizeofByte + SizeofInt16 + SizeofInt32
 }
 
-func (me *protoHeader) ToBinary(bin []byte) error {
+func (me *ProtoHeader) ToBinary(bin []byte) error {
 	if len(bin) < me.Size() {
 		return ErrTooShortBuffer
 	}
@@ -123,22 +123,22 @@ func (me *protoHeader) ToBinary(bin []byte) error {
 	return nil
 }
 
-func (me *protoHeader) FromBinary(bin []byte) error {
+func (me *ProtoHeader) FromBinary(bin []byte) error {
 	if len(bin) < me.Size() {
 		return ErrTooShortBuffer
 	}
 
 	me.version = bin[0]
-	me.cmd = protoCmd(bin[1])
+	me.cmd = ProtoCmd(bin[1])
 
-	me.flag = protoFlag(binary.BigEndian.Uint16(bin[2:]))
+	me.flag = ProtoFlag(binary.BigEndian.Uint16(bin[2:]))
 
 	return nil
 }
 
 // create/delete/find response
-type protoError struct {
-	protoHeader
+type ProtoError struct {
+	ProtoHeader
 
 	err int32
 	// nerrs uint32 // errs length, just protocol
@@ -146,7 +146,7 @@ type protoError struct {
 	errs []byte // maybe nil
 }
 
-func (me *protoError) Error() error {
+func (me *ProtoError) Error() error {
 	if 0 == me.err {
 		return nil
 	} else if nil != me.errs {
@@ -156,25 +156,25 @@ func (me *protoError) Error() error {
 	}
 }
 
-func (me *protoError) String() string {
+func (me *ProtoError) String() string {
 	errs := Empty
 	if nil != me.errs {
 		errs = string(me.errs)
 	}
 
-	return me.protoHeader.String() + fmt.Sprintf(" err:%d errs:%s", me.err, errs)
+	return me.ProtoHeader.String() + fmt.Sprintf(" err:%d errs:%s", me.err, errs)
 }
 
-func (me *protoError) FixedSize() int {
+func (me *ProtoError) FixedSize() int {
 	return 2 * SizeofInt32
 }
 
-func (me *protoError) Size() int {
-	return me.protoHeader.Size() + me.FixedSize() + len(me.errs)
+func (me *ProtoError) Size() int {
+	return me.ProtoHeader.Size() + me.FixedSize() + len(me.errs)
 }
 
-func (me *protoError) ToBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoError) ToBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.ToBinary(bin[0:])
 	if nil != err {
 		return err
@@ -191,8 +191,8 @@ func (me *protoError) ToBinary(bin []byte) error {
 	return nil
 }
 
-func (me *protoError) FromBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoError) FromBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.FromBinary(bin[0:])
 	if nil != err {
 		return err
@@ -213,8 +213,8 @@ func (me *protoError) FromBinary(bin []byte) error {
 }
 
 // delete/find/get repuest
-type protoIdentify struct {
-	protoHeader
+type ProtoIdentify struct {
+	ProtoHeader
 
 	bkdr Bkdr
 	// ndigest uint32 // just protocol
@@ -222,22 +222,22 @@ type protoIdentify struct {
 	digest []byte
 }
 
-func (me *protoIdentify) String() string {
-	return me.protoHeader.String() + fmt.Sprintf(" bkdr:%x digest:%s",
+func (me *ProtoIdentify) String() string {
+	return me.ProtoHeader.String() + fmt.Sprintf(" bkdr:%x digest:%s",
 		me.bkdr,
 		hex.EncodeToString(me.digest))
 }
 
-func (me *protoIdentify) FixedSize() int {
+func (me *ProtoIdentify) FixedSize() int {
 	return 2 * SizeofInt32
 }
 
-func (me *protoIdentify) Size() int {
-	return me.protoHeader.Size() + me.FixedSize() + len(me.digest)
+func (me *ProtoIdentify) Size() int {
+	return me.ProtoHeader.Size() + me.FixedSize() + len(me.digest)
 }
 
-func (me *protoIdentify) ToBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoIdentify) ToBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.ToBinary(bin[0:])
 	if nil != err {
 		return err
@@ -254,8 +254,8 @@ func (me *protoIdentify) ToBinary(bin []byte) error {
 	return nil
 }
 
-func (me *protoIdentify) FromBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoIdentify) FromBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.FromBinary(bin[0:])
 	if nil != err {
 		return err
@@ -280,8 +280,8 @@ func (me *protoIdentify) FromBinary(bin []byte) error {
 
 // create request
 // get response
-type protoTransfer struct {
-	protoHeader
+type ProtoTransfer struct {
+	ProtoHeader
 
 	bkdr Bkdr
 	time Time32 // create time, like C: time_t
@@ -292,23 +292,23 @@ type protoTransfer struct {
 	content []byte
 }
 
-func (me *protoTransfer) String() string {
-	return me.protoHeader.String() + fmt.Sprintf(" bkdr:%x digest:%s content:%s",
+func (me *ProtoTransfer) String() string {
+	return me.ProtoHeader.String() + fmt.Sprintf(" bkdr:%x digest:%s content:%s",
 		me.bkdr,
 		hex.EncodeToString(me.digest),
 		hex.EncodeToString(me.content))
 }
 
-func (me *protoTransfer) FixedSize() int {
+func (me *ProtoTransfer) FixedSize() int {
 	return 4 * SizeofInt32
 }
 
-func (me *protoTransfer) Size() int {
-	return me.protoHeader.Size() + me.FixedSize() + len(me.digest) + len(me.content)
+func (me *ProtoTransfer) Size() int {
+	return me.ProtoHeader.Size() + me.FixedSize() + len(me.digest) + len(me.content)
 }
 
-func (me *protoTransfer) ToBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoTransfer) ToBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.ToBinary(bin[0:])
 	if nil != err {
 		return err
@@ -331,8 +331,8 @@ func (me *protoTransfer) ToBinary(bin []byte) error {
 	return nil
 }
 
-func (me *protoTransfer) FromBinary(bin []byte) error {
-	hdr := &me.protoHeader
+func (me *ProtoTransfer) FromBinary(bin []byte) error {
+	hdr := &me.ProtoHeader
 	err := hdr.FromBinary(bin[0:])
 	if nil != err {
 		return err
@@ -363,13 +363,13 @@ func (me *protoTransfer) FromBinary(bin []byte) error {
 	return nil
 }
 
-func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
+func protoRead(stream *TcpStream, request bool) (*ProtoHeader, IBinary, error) {
 	bin, err := stream.Read()
 	if nil != err {
 		return nil, nil, err
 	}
 
-	hdr := &protoHeader{}
+	hdr := &ProtoHeader{}
 	err = hdr.FromBinary(bin)
 	if nil != err {
 		Log.Info("read proto header error:%v", err)
@@ -396,24 +396,24 @@ func protoRead(stream *TcpStream, request bool) (*protoHeader, IBinary, error) {
 	switch cmd {
 	case cmdPush:
 		if request {
-			msg = &protoTransfer{}
+			msg = &ProtoTransfer{}
 		} else {
-			msg = &protoError{}
+			msg = &ProtoError{}
 		}
 	case cmdFind, cmdDel, cmdTouch:
 		if request {
-			msg = &protoIdentify{}
+			msg = &ProtoIdentify{}
 		} else {
-			msg = &protoError{}
+			msg = &ProtoError{}
 		}
 	case cmdPull:
 		if request {
-			msg = &protoIdentify{}
+			msg = &ProtoIdentify{}
 		} else {
 			if hdr.flag.Has(flagError) {
-				msg = &protoError{}
+				msg = &ProtoError{}
 			} else {
-				msg = &protoTransfer{}
+				msg = &ProtoTransfer{}
 			}
 		}
 	}
@@ -439,11 +439,11 @@ func protoWrite(stream *TcpStream, msg IBinary) error {
 	return stream.Write(bin)
 }
 
-func replyOk(stream *TcpStream, cmd protoCmd) error {
+func replyOk(stream *TcpStream, cmd ProtoCmd) error {
 	return replyError(stream, cmd, 0, Empty)
 }
 
-func replyError(stream *TcpStream, cmd protoCmd, Err int, Errs string) error {
+func replyError(stream *TcpStream, cmd ProtoCmd, Err int, Errs string) error {
 	var errs []byte
 
 	if Empty != Errs {
@@ -455,8 +455,8 @@ func replyError(stream *TcpStream, cmd protoCmd, Err int, Errs string) error {
 		flag |= flagError
 	}
 
-	msg := &protoError{
-		protoHeader: NewProtoHeader(cmd, flag),
+	msg := &ProtoError{
+		ProtoHeader: NewProtoHeader(cmd, flag),
 		err:         int32(Err),
 		errs:        errs,
 	}
@@ -464,7 +464,7 @@ func replyError(stream *TcpStream, cmd protoCmd, Err int, Errs string) error {
 	return protoWrite(stream, msg)
 }
 
-func replyFile(stream *TcpStream, cmd protoCmd, Time Time32, bkdr Bkdr, digest, content []byte) error {
+func replyFile(stream *TcpStream, cmd ProtoCmd, Time Time32, bkdr Bkdr, digest, content []byte) error {
 	if nil == digest {
 		digest = DeftDigester.Digest(content)
 	}
@@ -473,8 +473,8 @@ func replyFile(stream *TcpStream, cmd protoCmd, Time Time32, bkdr Bkdr, digest, 
 		bkdr = DeftBkdrer.Bkdr(digest)
 	}
 
-	msg := &protoTransfer{
-		protoHeader: NewProtoHeader(cmd, flagResponse),
+	msg := &ProtoTransfer{
+		ProtoHeader: NewProtoHeader(cmd, flagResponse),
 		bkdr:        bkdr,
 		time:        Time,
 		digest:      digest,
@@ -491,10 +491,10 @@ func recvResponse(stream *TcpStream) error {
 	}
 
 	switch obj := msg.(type) {
-	case *protoError:
+	case *ProtoError:
 		return obj.Error()
-	case *protoTransfer:
-		file := dbconf.File(obj.bkdr, obj.digest)
+	case *ProtoTransfer:
+		file := dbConf.File(obj.bkdr, obj.digest)
 		if err := file.Save(obj.content); nil != err {
 			return err
 		}

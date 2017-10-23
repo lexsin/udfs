@@ -17,18 +17,18 @@ const (
 )
 
 var db *bolt.DB
-var dbconf = &dbConf{}
-var dbconfold = &dbConf{}
+var dbConf = &DbConf{}
+var dbConfOld = &DbConf{}
 
-type dbConf struct {
-	Dirs []string `json:"dirs"`
+type DbConf struct {
+	dirs []string `json:"dirs"`
 }
 
-func (me *dbConf) idir(bkdr Bkdr) byte {
-	return byte(bkdr % Bkdr(len(me.Dirs)))
+func (me *DbConf) idir(bkdr Bkdr) byte {
+	return byte(bkdr % Bkdr(len(me.dirs)))
 }
 
-func (me *dbConf) path(bkdr Bkdr) udfsFile {
+func (me *DbConf) path(bkdr Bkdr) UdfsFile {
 	var b [4]byte
 	var s [8]byte
 
@@ -36,33 +36,33 @@ func (me *dbConf) path(bkdr Bkdr) udfsFile {
 	hex.Encode(s[:], b[:])
 
 	idir := me.idir(bkdr)
-	path := filepath.Join(dbconf.Dirs[idir], string(s[0:4]), string(s[4:8]))
+	path := filepath.Join(dbConf.dirs[idir], string(s[0:4]), string(s[4:8]))
 
-	return udfsFile{
+	return UdfsFile{
 		name: FileName(path),
 		idir: idir,
 	}
 }
 
-func (me *dbConf) file(path udfsFile, digest []byte) udfsFile {
+func (me *DbConf) file(path UdfsFile, digest []byte) UdfsFile {
 	file := filepath.Join(path.String(), hex.EncodeToString(digest))
 
-	return udfsFile{
+	return UdfsFile{
 		name: FileName(file),
 		idir: path.idir,
 	}
 }
 
-func (me *dbConf) File(bkdr Bkdr, digest []byte) udfsFile {
+func (me *DbConf) File(bkdr Bkdr, digest []byte) UdfsFile {
 	return me.file(me.path(bkdr), digest)
 }
 
-func (me *dbConf) eq() bool {
-	if len(me.Dirs) != len(conf.Dirs) {
+func (me *DbConf) eq() bool {
+	if len(me.dirs) != len(conf.Dirs) {
 		return false
 	}
 
-	for i, dir := range me.Dirs {
+	for i, dir := range me.dirs {
 		if dir != conf.Dirs[i] {
 			return false
 		}
@@ -73,7 +73,7 @@ func (me *dbConf) eq() bool {
 
 const sizeofDbEntry = SizeofByte + 2*SizeofInt32 + DigestSize
 
-type dbEntry struct {
+type DbEntry struct {
 	time   Time32
 	bkdr   Bkdr
 	idir   byte
@@ -88,7 +88,7 @@ func dbBucketKey(bkdr Bkdr) []byte {
 	return bucket[:]
 }
 
-func (me *dbEntry) String() string {
+func (me *DbEntry) String() string {
 	return fmt.Sprintf("time:%v bkdr:%x dir:%d digest:%s",
 		me.time.Unix(),
 		me.bkdr,
@@ -96,11 +96,11 @@ func (me *dbEntry) String() string {
 		hex.EncodeToString(me.digest[:]))
 }
 
-func (me *dbEntry) Size() int {
+func (me *DbEntry) Size() int {
 	return SizeofByte + 2*SizeofInt32 + DigestSize
 }
 
-func (me *dbEntry) ToBinary(bin []byte) error {
+func (me *DbEntry) ToBinary(bin []byte) error {
 	if len(bin) < me.Size() {
 		return ErrTooShortBuffer
 	}
@@ -114,7 +114,7 @@ func (me *dbEntry) ToBinary(bin []byte) error {
 	return nil
 }
 
-func (me *dbEntry) FromBinary(bin []byte) error {
+func (me *DbEntry) FromBinary(bin []byte) error {
 	if len(bin) < me.Size() {
 		return ErrTooShortBuffer
 	}
@@ -128,7 +128,7 @@ func (me *dbEntry) FromBinary(bin []byte) error {
 	return nil
 }
 
-func dbGc(bucket []byte, fgc func(file udfsFile)) {
+func dbGc(bucket []byte, fgc func(file UdfsFile)) {
 	now := NowTime32()
 
 	db.Batch(func(tx *bolt.Tx) error {
@@ -138,13 +138,13 @@ func dbGc(bucket []byte, fgc func(file udfsFile)) {
 		}
 
 		b.ForEach(func(k, v []byte) error {
-			e := &dbEntry{}
+			e := &DbEntry{}
 			e.FromBinary(v)
 
 			if e.time+conf.Live < now {
 				b.Delete(k)
 
-				go fgc(dbconf.File(e.bkdr, e.digest[:]))
+				go fgc(dbConf.File(e.bkdr, e.digest[:]))
 			}
 			// todo
 			// db gc
@@ -162,8 +162,8 @@ func dbExist(bkdr Bkdr, digest []byte) bool {
 	return nil != entry
 }
 
-func dbGet(bkdr Bkdr, digest []byte) (*dbEntry, error) {
-	entry := &dbEntry{}
+func dbGet(bkdr Bkdr, digest []byte) (*DbEntry, error) {
+	entry := &DbEntry{}
 
 	if 0 == bkdr {
 		bkdr = DeftBkdrer.Bkdr(digest)
@@ -191,7 +191,7 @@ func dbGet(bkdr Bkdr, digest []byte) (*dbEntry, error) {
 	}
 }
 
-func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*dbEntry, error) {
+func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*DbEntry, error) {
 	if 0 == bkdr {
 		bkdr = DeftBkdrer.Bkdr(digest)
 	}
@@ -200,10 +200,10 @@ func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*dbEntry, error) {
 		mtime = NowTime32()
 	}
 
-	entry := &dbEntry{
+	entry := &DbEntry{
 		time: mtime,
 		bkdr: bkdr,
-		idir: dbconf.idir(bkdr),
+		idir: dbConf.idir(bkdr),
 	}
 	copy(entry.digest[:], digest)
 
@@ -250,16 +250,16 @@ func dbDel(bkdr Bkdr, digest []byte) error {
 }
 
 func dbDiskLoadBalance() error {
-	entry := &dbEntry{}
+	entry := &DbEntry{}
 
 	entryHandle := func(k, v []byte) error {
 		if err := entry.FromBinary(v); nil == err {
-			oldPath := dbconfold.path(entry.bkdr)
-			newPath := dbconf.path(entry.bkdr)
+			oldPath := dbConfOld.path(entry.bkdr)
+			newPath := dbConf.path(entry.bkdr)
 			os.MkdirAll(newPath.String(), 0775)
 
-			oldFile := dbconfold.file(oldPath, entry.digest[:])
-			newFile := dbconf.file(newPath, entry.digest[:])
+			oldFile := dbConfOld.file(oldPath, entry.digest[:])
+			newFile := dbConf.file(newPath, entry.digest[:])
 
 			os.Rename(oldFile.String(), newFile.String())
 		}
@@ -285,12 +285,12 @@ func dbLoadConf() error {
 	filename := dbJsonConf.Abs()
 	if filename.Exist() {
 		// db config exist, load it
-		err := filename.LoadJson(dbconf)
+		err := filename.LoadJson(dbConf)
 		if nil != err {
 			return err
 		}
 
-		if !dbconf.eq() {
+		if !dbConf.eq() {
 			// self is broker
 			// db config != etcd config
 			// disk load balance
@@ -300,9 +300,9 @@ func dbLoadConf() error {
 		}
 	} else {
 		// db config NOT exist, load it from etcd
-		dbconf.Dirs = conf.Dirs
+		dbConf.dirs = conf.Dirs
 
-		err := filename.SaveJson(dbconf)
+		err := filename.SaveJson(dbConf)
 		if nil != err {
 			return err
 		}
