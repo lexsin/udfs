@@ -170,7 +170,7 @@ func (me *protoError) FixedSize() int {
 }
 
 func (me *protoError) Size() int {
-	return me.protoHeader.Size() + me.FixedSize() + Len(me.errs)
+	return me.protoHeader.Size() + me.FixedSize() + len(me.errs)
 }
 
 func (me *protoError) ToBinary(bin []byte) error {
@@ -183,7 +183,7 @@ func (me *protoError) ToBinary(bin []byte) error {
 
 	// fixed ==> binary
 	binary.BigEndian.PutUint32(bin[0:], uint32(me.err))
-	binary.BigEndian.PutUint32(bin[4:], uint32(Len(me.errs)))
+	binary.BigEndian.PutUint32(bin[4:], uint32(len(me.errs)))
 
 	// dynamic ==> binary
 	Copy(bin[me.FixedSize():], me.errs)
@@ -246,7 +246,7 @@ func (me *protoIdentify) ToBinary(bin []byte) error {
 
 	// fixed ==> binary
 	binary.BigEndian.PutUint32(bin[0:], uint32(me.bkdr))
-	binary.BigEndian.PutUint32(bin[4:], uint32(Len(me.digest)))
+	binary.BigEndian.PutUint32(bin[4:], uint32(len(me.digest)))
 
 	// dynamic ==> binary
 	copy(bin[me.FixedSize():], me.digest)
@@ -318,14 +318,14 @@ func (me *protoTransfer) ToBinary(bin []byte) error {
 	// fixed ==> binary
 	binary.BigEndian.PutUint32(bin[0:], uint32(me.bkdr))
 	binary.BigEndian.PutUint32(bin[4:], uint32(me.time))
-	binary.BigEndian.PutUint32(bin[8:], uint32(Len(me.digest)))
-	binary.BigEndian.PutUint32(bin[12:], uint32(Len(me.content)))
+	binary.BigEndian.PutUint32(bin[8:], uint32(len(me.digest)))
+	binary.BigEndian.PutUint32(bin[12:], uint32(len(me.content)))
 
 	// dynamic ==> binary
 	begin := me.FixedSize()
 	copy(bin[begin:], me.digest)
 
-	begin += Len(me.digest)
+	begin += len(me.digest)
 	copy(bin[begin:], me.content)
 
 	return nil

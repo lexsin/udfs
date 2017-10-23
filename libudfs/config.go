@@ -54,7 +54,6 @@ type Conf struct {
 }
 
 func getEtcd(path string, timeout time.Duration) ([]byte, error) {
-	// new etcd client
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcdNodes,
 		DialTimeout: timeout,
@@ -165,7 +164,7 @@ func getEnv(name string) string {
 }
 
 func initEnv() {
-	thisHome = getEnv(ENV_THIS_HOME)
+	//thisHome = getEnv(ENV_THIS_HOME)
 	thisHost = getEnv(ENV_THIS_HOST)
 	etcdNodeList = getEnv(ENV_ETCD_NODES)
 	etcdUser = os.Getenv(ENV_ETCD_USER)
