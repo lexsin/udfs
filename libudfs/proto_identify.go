@@ -23,8 +23,10 @@ func (me *ProtoIdentify) String() string {
 		hex.EncodeToString(me.digest))
 }
 
+const ProtoIdentifyFixedSize = 2 * SizeofInt32
+
 func (me *ProtoIdentify) FixedSize() int {
-	return 2 * SizeofInt32
+	return ProtoIdentifyFixedSize
 }
 
 func (me *ProtoIdentify) Size() int {

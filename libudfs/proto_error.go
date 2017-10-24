@@ -36,8 +36,10 @@ func (me *ProtoError) String() string {
 	return me.ProtoHeader.String() + fmt.Sprintf(" err:%d errs:%s", me.err, errs)
 }
 
+const ProtoErrorFixedSize = 2 * SizeofInt32
+
 func (me *ProtoError) FixedSize() int {
-	return 2 * SizeofInt32
+	return ProtoErrorFixedSize
 }
 
 func (me *ProtoError) Size() int {

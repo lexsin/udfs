@@ -29,8 +29,10 @@ func (me *ProtoHeader) String() string {
 		me.flag.String())
 }
 
+const ProtoHeaderSize = 2*SizeofByte + SizeofInt16 + SizeofInt32
+
 func (me *ProtoHeader) Size() int {
-	return 2*SizeofByte + SizeofInt16 + SizeofInt32
+	return ProtoHeaderSize
 }
 
 func (me *ProtoHeader) ToBinary(bin []byte) error {
