@@ -1,18 +1,6 @@
 package udfs
 
-import (
-	"encoding/binary"
-)
-
 type ProtoFlag uint16
-
-func (me ProtoFlag) ToBinary(bin []byte) {
-	binary.BigEndian.PutUint16(bin, uint16(me))
-}
-
-func (me *ProtoFlag) FromBinary(bin []byte) {
-	*me = ProtoFlag(binary.BigEndian.Uint16(bin))
-}
 
 const (
 	flagResponse ProtoFlag = 0x01 // only for response

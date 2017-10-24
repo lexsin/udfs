@@ -1,7 +1,6 @@
 package udfs
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -15,13 +14,13 @@ type ProtoError struct {
 	err int32
 	// nerrs uint32 // errs length, just protocol, not delete this line
 
-	errs []byte // maybe nil
+	errs []byte // maybe nil/empty
 }
 
 func (me *ProtoError) Error() error {
 	if 0 == me.err {
 		return nil
-	} else if nil != me.errs {
+	} else if len(me.errs) > 0 {
 		return errors.New(string(me.errs))
 	} else {
 		return NewError(int(me.err))
@@ -30,7 +29,7 @@ func (me *ProtoError) Error() error {
 
 func (me *ProtoError) String() string {
 	errs := Empty
-	if nil != me.errs {
+	if len(me.errs) > 0 {
 		errs = string(me.errs)
 	}
 
@@ -54,11 +53,11 @@ func (me *ProtoError) ToBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// fixed ==> binary
-	binary.BigEndian.PutUint32(bin[0:], uint32(me.err))
-	binary.BigEndian.PutUint32(bin[4:], uint32(len(me.errs)))
+	Htonl(bin[0:], uint32(me.err))
+	Htonl(bin[4:], uint32(len(me.errs)))
 
 	// dynamic ==> binary
-	Copy(bin[me.FixedSize():], me.errs)
+	copy(bin[me.FixedSize():], me.errs)
 
 	return nil
 }
@@ -72,13 +71,13 @@ func (me *ProtoError) FromBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// binary ==> fixed
-	me.err = int32(binary.BigEndian.Uint32(bin[0:]))
-	nerrs := int(binary.BigEndian.Uint32(bin[4:]))
+	me.err = int32(Ntohl(bin[0:]))
+	nerrs := int(Ntohl(bin[4:]))
 
+	offset := me.FixedSize()
 	// binary ==> dynamic
 	if nerrs > 0 {
-		begin := me.FixedSize()
-		me.errs = bin[begin : begin+nerrs]
+		me.errs, offset = GetBytes(bin, offset, nerrs)
 	}
 
 	return nil

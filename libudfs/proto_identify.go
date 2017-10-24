@@ -1,7 +1,6 @@
 package udfs
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 
@@ -41,8 +40,8 @@ func (me *ProtoIdentify) ToBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// fixed ==> binary
-	me.bkdr.ToBinary(bin[0:])
-	binary.BigEndian.PutUint32(bin[4:], uint32(len(me.digest)))
+	Htonl(bin[0:], uint32(me.bkdr))
+	Htonl(bin[4:], uint32(len(me.digest)))
 
 	// dynamic ==> binary
 	copy(bin[me.FixedSize():], me.digest)
@@ -59,17 +58,15 @@ func (me *ProtoIdentify) FromBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// binary ==> fixed
-	(&me.bkdr).FromBinary(bin[0:])
-	ndigest := int(binary.BigEndian.Uint32(bin[4:]))
-
+	me.bkdr = Bkdr(Ntohl(bin[0:]))
+	ndigest := int(Ntohl(bin[4:]))
 	if 0 == ndigest {
 		return ErrEmpty
 	}
+	offset := me.FixedSize()
 
 	// binary ==> dyanmic
-	begin := me.FixedSize()
-	end := begin + ndigest
-	me.digest = bin[begin:end]
+	me.digest, offset = GetBytes(bin, offset, ndigest)
 
 	return nil
 }

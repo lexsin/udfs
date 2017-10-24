@@ -99,8 +99,8 @@ type DbEntry struct {
 	digest [DigestSize]byte
 }
 
-func dbBucketKey(bkdr Bkdr) []byte {
-	var bucket [2]byte
+func dbBucket(bkdr Bkdr) []byte {
+	bucket := [2]byte{}
 
 	binary.BigEndian.PutUint16(bucket[:], uint16(bkdr))
 
@@ -185,7 +185,7 @@ func dbGet(bkdr Bkdr, digest []byte) (*DbEntry, error) {
 	bkdr = newbkdr(bkdr, digest)
 
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dbBucketKey(bkdr))
+		b := tx.Bucket(dbBucket(bkdr))
 		if nil == b {
 			return ErrNoExist
 		}
@@ -223,7 +223,7 @@ func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*DbEntry, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(dbBucketKey(bkdr))
+		b, err := tx.CreateBucketIfNotExists(dbBucket(bkdr))
 		if nil != err {
 			return err
 		}
@@ -243,7 +243,7 @@ func dbDel(bkdr Bkdr, digest []byte) error {
 	bkdr = newbkdr(bkdr, digest)
 
 	err := db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dbBucketKey(bkdr))
+		b := tx.Bucket(dbBucket(bkdr))
 		if nil != b {
 			return b.Delete(digest)
 		} else {

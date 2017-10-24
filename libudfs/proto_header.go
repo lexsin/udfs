@@ -41,7 +41,7 @@ func (me *ProtoHeader) ToBinary(bin []byte) error {
 	bin[0] = me.version
 	bin[1] = byte(me.cmd)
 
-	me.flag.ToBinary(bin[2:])
+	Htons(bin[2:], uint16(me.flag))
 
 	return nil
 }
@@ -54,7 +54,7 @@ func (me *ProtoHeader) FromBinary(bin []byte) error {
 	me.version = bin[0]
 	me.cmd = ProtoCmd(bin[1])
 
-	(&me.flag).FromBinary(bin[2:])
+	me.flag = ProtoFlag(Ntohs(bin[2:]))
 
 	return nil
 }

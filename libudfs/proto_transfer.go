@@ -1,7 +1,6 @@
 package udfs
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 
@@ -46,10 +45,10 @@ func (me *ProtoTransfer) ToBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// fixed ==> binary
-	me.bkdr.ToBinary(bin[0:])
-	me.time.ToBinary(bin[4:])
-	binary.BigEndian.PutUint32(bin[8:], uint32(len(me.digest)))
-	binary.BigEndian.PutUint32(bin[12:], uint32(len(me.content)))
+	Htonl(bin[0:], uint32(me.bkdr))
+	Htonl(bin[4:], uint32(me.time))
+	Htonl(bin[8:], uint32(len(me.digest)))
+	Htonl(bin[12:], uint32(len(me.content)))
 
 	// dynamic ==> binary
 	begin := me.FixedSize()
@@ -70,25 +69,21 @@ func (me *ProtoTransfer) FromBinary(bin []byte) error {
 	bin = bin[hdr.Size():]
 
 	// binary ==> fixed
-	(&me.bkdr).FromBinary(bin[0:])
-	(&me.time).FromBinary(bin[4:])
-	ndigest := int(binary.BigEndian.Uint32(bin[8:]))
-	ncontent := int(binary.BigEndian.Uint32(bin[12:]))
+	me.bkdr = Bkdr(Ntohl(bin[0:]))
+	me.time = Time32(Ntohl(bin[4:]))
+	ndigest := int(Ntohl(bin[8:]))
+	ncontent := int(Ntohl(bin[12:]))
 
 	if 0 == ndigest {
 		return ErrEmpty
 	} else if 0 == ncontent {
 		return ErrEmpty
 	}
+	offset := me.FixedSize()
 
 	// binary ==> dynamic
-	begin := me.FixedSize()
-	end := begin + ndigest
-	me.digest = bin[begin:end]
-
-	begin = end
-	end += ncontent
-	me.content = bin[begin:end]
+	me.digest, offset = GetBytes(bin, offset, ndigest)
+	me.content, offset = GetBytes(bin, offset, ncontent)
 
 	return nil
 }

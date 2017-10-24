@@ -34,23 +34,18 @@ func protoRead(stream *TcpStream, request bool) (*ProtoHeader, IBinary, error) {
 
 	var msg IBinary
 
-	switch cmd {
-	case cmdPush:
-		if request {
+	if request {
+		switch cmd {
+		case cmdPush:
 			msg = &ProtoTransfer{}
-		} else {
-			msg = &ProtoError{}
-		}
-	case cmdDel, cmdTouch:
-		if request {
+		case cmdDel, cmdTouch, cmdPull:
 			msg = &ProtoIdentify{}
-		} else {
-			msg = &ProtoError{}
 		}
-	case cmdPull:
-		if request {
-			msg = &ProtoIdentify{}
-		} else {
+	} else {
+		switch cmd {
+		case cmdPush, cmdDel, cmdTouch:
+			msg = &ProtoError{}
+		case cmdPull:
 			if hdr.flag.Has(flagError) {
 				msg = &ProtoError{}
 			} else {
@@ -85,12 +80,6 @@ func replyOk(stream *TcpStream, cmd ProtoCmd) error {
 }
 
 func replyError(stream *TcpStream, cmd ProtoCmd, Err int, Errs string) error {
-	var errs []byte
-
-	if Empty != Errs {
-		errs = []byte(Errs)
-	}
-
 	flag := flagResponse
 	if Err != 0 {
 		flag |= flagError
@@ -99,7 +88,7 @@ func replyError(stream *TcpStream, cmd ProtoCmd, Err int, Errs string) error {
 	msg := &ProtoError{
 		ProtoHeader: NewProtoHeader(cmd, flag),
 		err:         int32(Err),
-		errs:        errs,
+		errs:        []byte(Errs),
 	}
 
 	return protoWrite(stream, msg)
