@@ -115,8 +115,10 @@ func (me *DbEntry) String() string {
 		hex.EncodeToString(me.digest[:]))
 }
 
+const DbEntrySize = SizeofByte + 2*SizeofInt32 + DigestSize
+
 func (me *DbEntry) Size() int {
-	return SizeofByte + 2*SizeofInt32 + DigestSize
+	return DbEntrySize
 }
 
 func (me *DbEntry) ToBinary(bin []byte) error {
