@@ -11,14 +11,33 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-const (
-	dbFile     FileName = "udfs.db"
-	dbJsonConf FileName = "udfs.json"
-)
-
 var db *bolt.DB
 var dbConf = &DbConf{}
 var dbConfOld = &DbConf{}
+
+func newbkdr(bkdr Bkdr, digest []byte) Bkdr {
+	if 0 == bkdr {
+		bkdr = DeftBkdrer.Bkdr(digest)
+	}
+
+	return bkdr
+}
+
+func newdigest(digest, content []byte) []byte {
+	if nil == digest {
+		digest = DeftDigester.Digest(content)
+	}
+
+	return digest
+}
+
+func newtime32(time Time32) Time32 {
+	if 0 == time {
+		time = NowTime32()
+	}
+
+	return time
+}
 
 type DbConf struct {
 	dirs []string `json:"dirs"`
@@ -40,7 +59,7 @@ func (me *DbConf) path(bkdr Bkdr) UdfsFile {
 
 	return UdfsFile{
 		name: FileName(path),
-		idir: idir,
+		idir: int(idir),
 	}
 }
 
@@ -146,9 +165,7 @@ func dbGc(bucket []byte, fgc func(file UdfsFile)) {
 
 				go fgc(dbConf.File(e.bkdr, e.digest[:]))
 			}
-			// todo
-			// db gc
-			// file gc
+
 			return nil
 		})
 
@@ -165,9 +182,7 @@ func dbExist(bkdr Bkdr, digest []byte) bool {
 func dbGet(bkdr Bkdr, digest []byte) (*DbEntry, error) {
 	entry := &DbEntry{}
 
-	if 0 == bkdr {
-		bkdr = DeftBkdrer.Bkdr(digest)
-	}
+	bkdr = newbkdr(bkdr, digest)
 
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(dbBucketKey(bkdr))
@@ -192,13 +207,8 @@ func dbGet(bkdr Bkdr, digest []byte) (*DbEntry, error) {
 }
 
 func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*DbEntry, error) {
-	if 0 == bkdr {
-		bkdr = DeftBkdrer.Bkdr(digest)
-	}
-
-	if 0 == mtime {
-		mtime = NowTime32()
-	}
+	bkdr = newbkdr(bkdr, digest)
+	mtime = newtime32(mtime)
 
 	entry := &DbEntry{
 		time: mtime,
@@ -230,9 +240,7 @@ func dbAdd(bkdr Bkdr, digest []byte, mtime Time32) (*DbEntry, error) {
 }
 
 func dbDel(bkdr Bkdr, digest []byte) error {
-	if 0 == bkdr {
-		bkdr = DeftBkdrer.Bkdr(digest)
-	}
+	bkdr = newbkdr(bkdr, digest)
 
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(dbBucketKey(bkdr))
@@ -277,12 +285,7 @@ func dbDiskLoadBalance() error {
 }
 
 func dbLoadConf() error {
-	// just for broker
-	if roleBroker != udfs.role {
-		return nil
-	}
-
-	filename := dbJsonConf.Abs()
+	filename := conf.DbConfName.Abs()
 	if filename.Exist() {
 		// db config exist, load it
 		err := filename.LoadJson(dbConf)
@@ -315,7 +318,7 @@ func dbLoadConf() error {
 func dbInit() error {
 	var err error
 
-	db, err = bolt.Open(dbFile.Abs().String(), 0755, nil)
+	db, err = bolt.Open(conf.DbFileName.Abs().String(), 0755, nil)
 	if nil != err {
 		return err
 	}

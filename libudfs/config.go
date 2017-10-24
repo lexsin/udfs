@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	etcdTimeout = 3 * time.Second
-	deftLive    = 15552000 // 3600*24*30*6
+	etcdTimeout    = 3 * time.Second
+	deftLive       = 15552000 // 3600*24*30*6
+	deftDbFileName = "udfs.db"
+	deftDbConfName = "udfs.json"
 
 	minReplication  = 1
 	maxReplication  = 3
@@ -55,6 +57,8 @@ type Conf struct {
 	Replication int      `json:"replication"`
 	Port        int      `json:"port"`
 	Live        Time32   `json:"live"`
+	DbFileName  FileName `json:"dbfilename"`
+	DbConfName  FileName `json:"dbconfname"`
 }
 
 func (me *Conf) setDefault() {
@@ -70,12 +74,20 @@ func (me *Conf) setDefault() {
 		// use default Replication
 		me.Replication = deftReplication
 	}
+
+	if Empty == me.DbFileName {
+		me.DbFileName = deftDbFileName
+	}
+
+	if Empty == me.DbConfName {
+		me.DbConfName = deftDbConfName
+	}
 }
 
 func (me *Conf) findNodeID(host string) int {
-	for idx, node := range me.Nodes {
-		if host == node {
-			return idx
+	for k, v := range me.Nodes {
+		if host == v {
+			return k
 		}
 	}
 
@@ -195,9 +207,4 @@ func initEnv() {
 	} else {
 		etcdNodes = strings.Split(etcdNodeList, ",")
 	}
-}
-
-func preInit() {
-	initEnv()
-	initConf()
 }

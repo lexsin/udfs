@@ -30,21 +30,3 @@ func (me UdfsRole) String() string {
 		return Unknow
 	}
 }
-
-var udfs *UdfsEndPoint
-
-func udfsInit(role UdfsRole) {
-	preInit()
-
-	switch role {
-	case rolePublisher:
-		dbInit()
-	case roleBroker:
-		fileInit()
-		dbInit()
-	case roleConsumer:
-		// do nothing
-	}
-
-	udfs = newEndPoint(role)
-}

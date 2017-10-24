@@ -24,7 +24,7 @@ func fileInit() {
 
 type UdfsFile struct {
 	name FileName
-	idir byte
+	idir int
 }
 
 func (me *UdfsFile) String() string {
