@@ -4,11 +4,6 @@ import (
 	. "asdf"
 )
 
-type Node struct {
-	alive bool
-	addr  *TcpAddr
-}
-
 func tcpAddr(ip string) *TcpAddr {
 	return NewTcpAddr(conf.Port, ip)
 }
@@ -20,10 +15,16 @@ func newNode(ip string) *Node {
 	}
 }
 
+type Node struct {
+	alive bool
+	addr  *TcpAddr
+}
+
+var loopback = tcpAddr("127.0.0.1")
+
 func (me *Node) dial() (*TcpStream, error) {
 	if roleConsumer == ep.role {
-		// consumer use loopback address
-		return TcpStreamDial(tcpAddr("127.0.0.1"))
+		return TcpStreamDial(loopback)
 	} else {
 		return TcpStreamDial(me.addr)
 	}
@@ -75,6 +76,7 @@ func (me *Node) pull(bkdr Bkdr, digest []byte) error {
 		digest:      digest,
 	}
 
+	// save content @recv
 	return me.call(msg)
 }
 

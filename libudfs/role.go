@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	roleConsumer  UdfsRole = 0
-	rolePublisher UdfsRole = 1
-	roleBroker    UdfsRole = 2
-	roleEnd       UdfsRole = 3
+	roleConsumer  Role = 0
+	rolePublisher Role = 1
+	roleBroker    Role = 2
+	roleEnd       Role = 3
 )
 
 var udfsRoles = [roleEnd]string{
@@ -17,13 +17,13 @@ var udfsRoles = [roleEnd]string{
 	roleBroker:    "broker",
 }
 
-type UdfsRole int
+type Role int
 
-func (me UdfsRole) IsGood() bool {
+func (me Role) IsGood() bool {
 	return me >= 0 && me < roleEnd
 }
 
-func (me UdfsRole) String() string {
+func (me Role) String() string {
 	if me.IsGood() {
 		return udfsRoles[me]
 	} else {

@@ -2,18 +2,13 @@ package udfs
 
 import (
 	. "asdf"
-	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/boltdb/bolt"
 )
 
 var db *bolt.DB
-var dbConf = &DbConf{}
-var dbConfOld = &DbConf{}
 
 func newbkdr(bkdr Bkdr, digest []byte) Bkdr {
 	if 0 == bkdr {
@@ -39,114 +34,12 @@ func newtime32(time Time32) Time32 {
 	return time
 }
 
-type DbConf struct {
-	dirs []string `json:"dirs"`
-}
-
-func (me *DbConf) idir(bkdr Bkdr) byte {
-	return byte(bkdr % Bkdr(len(me.dirs)))
-}
-
-func (me *DbConf) path(bkdr Bkdr) UdfsFile {
-	var b [4]byte
-	var s [8]byte
-
-	binary.BigEndian.PutUint32(b[:], uint32(bkdr))
-	hex.Encode(s[:], b[:])
-
-	idir := me.idir(bkdr)
-	path := filepath.Join(dbConf.dirs[idir], string(s[0:4]), string(s[4:8]))
-
-	return UdfsFile{
-		name: FileName(path),
-		idir: int(idir),
-	}
-}
-
-func (me *DbConf) file(path UdfsFile, digest []byte) UdfsFile {
-	file := filepath.Join(path.String(), hex.EncodeToString(digest))
-
-	return UdfsFile{
-		name: FileName(file),
-		idir: path.idir,
-	}
-}
-
-func (me *DbConf) File(bkdr Bkdr, digest []byte) UdfsFile {
-	return me.file(me.path(bkdr), digest)
-}
-
-func (me *DbConf) eq() bool {
-	if len(me.dirs) != len(conf.Dirs) {
-		return false
-	}
-
-	for i, dir := range me.dirs {
-		if dir != conf.Dirs[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-const sizeofDbEntry = SizeofByte + 2*SizeofInt32 + DigestSize
-
-type DbEntry struct {
-	time   Time32
-	bkdr   Bkdr
-	idir   byte
-	digest [DigestSize]byte
-}
-
 func dbBucket(bkdr Bkdr) []byte {
 	bucket := [2]byte{}
 
-	binary.BigEndian.PutUint16(bucket[:], uint16(bkdr))
+	Htons(bucket[:], uint16(bkdr))
 
 	return bucket[:]
-}
-
-func (me *DbEntry) String() string {
-	return fmt.Sprintf("time:%v bkdr:%x dir:%d digest:%s",
-		me.time.Unix(),
-		me.bkdr,
-		me.idir,
-		hex.EncodeToString(me.digest[:]))
-}
-
-const DbEntrySize = SizeofByte + 2*SizeofInt32 + DigestSize
-
-func (me *DbEntry) Size() int {
-	return DbEntrySize
-}
-
-func (me *DbEntry) ToBinary(bin []byte) error {
-	if len(bin) < me.Size() {
-		return ErrTooShortBuffer
-	}
-
-	binary.BigEndian.PutUint32(bin[0:], uint32(me.time))
-	binary.BigEndian.PutUint32(bin[4:], uint32(me.bkdr))
-	bin[8] = byte(me.idir)
-
-	copy(bin[9:], me.digest[:])
-
-	return nil
-}
-
-func (me *DbEntry) FromBinary(bin []byte) error {
-	if len(bin) < me.Size() {
-		return ErrTooShortBuffer
-	}
-
-	me.time = Time32(binary.BigEndian.Uint32(bin[0:]))
-	me.bkdr = Bkdr(binary.BigEndian.Uint32(bin[4:]))
-	me.idir = bin[8]
-
-	copy(me.digest[:], bin[9:])
-
-	return nil
 }
 
 func dbGc(bucket []byte, fgc func(file UdfsFile)) {
@@ -286,44 +179,14 @@ func dbDiskLoadBalance() error {
 	})
 }
 
-func dbLoadConf() error {
-	filename := conf.DbConfName.Abs()
-	if filename.Exist() {
-		// db config exist, load it
-		err := filename.LoadJson(dbConf)
-		if nil != err {
-			return err
-		}
-
-		if !dbConf.eq() {
-			// self is broker
-			// db config != etcd config
-			// disk load balance
-			if err = dbDiskLoadBalance(); nil != err {
-				return err
-			}
-		}
-	} else {
-		// db config NOT exist, load it from etcd
-		dbConf.dirs = conf.Dirs
-
-		err := filename.SaveJson(dbConf)
-		if nil != err {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // just for publisher/broker
-func dbInit() error {
-	var err error
+func initDb(role Role) {
+	if role != roleConsumer {
+		bdb, err := bolt.Open(conf.DbFileName.Abs().String(), 0755, nil)
+		if nil != err {
+			os.Exit(StdErrBadFile)
+		}
 
-	db, err = bolt.Open(conf.DbFileName.Abs().String(), 0755, nil)
-	if nil != err {
-		return err
+		db = bdb
 	}
-
-	return dbLoadConf()
 }

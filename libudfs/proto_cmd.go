@@ -3,8 +3,8 @@ package udfs
 type ProtoCmd byte
 
 const (
-	cmdPush  ProtoCmd = 0 // publisher ==> leader ==> follower
-	cmdTouch ProtoCmd = 1 // publisher ==> leader ==> follower
+	cmdPush  ProtoCmd = 0 // publisher ==> [leader] ==> follower
+	cmdTouch ProtoCmd = 1 // publisher ==> [leader] ==> follower
 	cmdPull  ProtoCmd = 2 // consumer  ==> leader ==> follower
 	cmdDel   ProtoCmd = 3 // gc
 	cmdEnd   ProtoCmd = 4

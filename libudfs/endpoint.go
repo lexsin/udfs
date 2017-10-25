@@ -8,7 +8,13 @@ import (
 	. "asdf"
 )
 
-func newEndPoint(role UdfsRole) *EndPoint {
+var ep *EndPoint
+
+func initEndPoint(role Role) {
+	ep = newEndPoint(role)
+}
+
+func newEndPoint(role Role) *EndPoint {
 	count := len(conf.Nodes)
 	more := conf.Replication - 1
 
@@ -25,13 +31,15 @@ func newEndPoint(role UdfsRole) *EndPoint {
 		ep.nodes[count+i] = ep.nodes[i]
 	}
 
-	listener, err := ListenTcp(conf.Port, "0.0.0.0")
-	if nil != err {
-		Log.Error("listen port:%d error:%v", conf.Port, err)
+	if role != roleConsumer {
+		listener, err := ListenTcp(conf.Port, "0.0.0.0")
+		if nil != err {
+			Log.Error("listen port:%d error:%v", conf.Port, err)
 
-		os.Exit(StdErrListen)
+			os.Exit(StdErrListen)
+		}
+		ep.listener = listener
 	}
-	ep.listener = listener
 
 	return ep
 }
@@ -39,7 +47,7 @@ func newEndPoint(role UdfsRole) *EndPoint {
 type EndPoint struct {
 	nodes    []*Node
 	listener *TcpListener
-	role     UdfsRole
+	role     Role
 }
 
 func (me *EndPoint) inode(bkdr Bkdr) int {
@@ -84,6 +92,7 @@ func (me *EndPoint) push(bkdr Bkdr, time Time32, digest, content []byte) error {
 	dbAdd(bkdr, digest, time)
 
 	if me.self() == me.leader(bkdr) {
+		// leader should re-do it to follers
 		return me.pushFollowers(bkdr, time, digest, content)
 	} else {
 		return nil
@@ -115,6 +124,7 @@ func (me *EndPoint) del(bkdr Bkdr, digest []byte) error {
 	dbDel(bkdr, digest)
 
 	if me.self() == me.leader(bkdr) {
+		// leader should re-do it to follers
 		return me.delFollowers(bkdr, digest)
 	} else {
 		return nil
@@ -140,11 +150,10 @@ func (me *EndPoint) pull(bkdr Bkdr, digest []byte) error {
 	file := dbConf.File(bkdr, digest)
 
 	if dbExist(bkdr, digest) && file.Exist() {
+		// file exist @local
 		return nil
-	} else if me.self() == me.leader(bkdr) {
-		return me.pullFollowers(bkdr, digest)
 	} else {
-		return nil
+		return me.pullFollowers(bkdr, digest)
 	}
 }
 
@@ -154,6 +163,7 @@ func (me *EndPoint) pullFollowers(bkdr Bkdr, digest []byte) error {
 	followers := me.followers(bkdr)
 
 	for _, node := range followers {
+		// pull file from node, and save local
 		err = node.pull(bkdr, digest)
 		if nil == err {
 			return nil
@@ -171,6 +181,7 @@ func (me *EndPoint) touch(bkdr Bkdr, digest []byte) error {
 	dbAdd(bkdr, digest, time)
 
 	if me.self() == me.leader(bkdr) {
+		// leader should re-do it to follers
 		return me.touchFollowers(bkdr, digest)
 	} else {
 		return nil

@@ -18,8 +18,10 @@ func newDirLocks() []*RwLock {
 	return locks
 }
 
-func fileInit() {
-	dirLocks = newDirLocks()
+func initFile(role Role) {
+	if role == roleBroker {
+		dirLocks = newDirLocks()
+	}
 }
 
 type UdfsFile struct {

@@ -7,7 +7,7 @@ import (
 // broker api
 // call in main
 func BrokerMain() {
-	initByRole(roleBroker)
+	initRole(roleBroker)
 
 	go ep.listen()
 
@@ -17,23 +17,27 @@ func BrokerMain() {
 // consumer api
 // first call in main
 func InitConsumer() {
-	initByRole(roleConsumer)
+	initRole(roleConsumer)
 }
 
 // consumer api
-func ConsumerPull(bkdr Bkdr, digest []byte) error {
+func ConsumerPull(bkdr Bkdr, digest []byte) (FileName, error) {
 	err := ep.leader(bkdr).pull(bkdr, digest)
 	if nil != err {
-		return ep.pullFollowers(bkdr, digest)
+		// NOT pull from follers
+		// do nothing, just error
+		return Empty, err
 	} else {
-		return nil
+		filename := dbConf.File(bkdr, digest).name
+
+		return filename, nil
 	}
 }
 
 // publisher api
 // first call in main
 func InitPublisher() {
-	initByRole(rolePublisher)
+	initRole(rolePublisher)
 
 	go ep.gc()
 }
@@ -45,7 +49,12 @@ func PublisherPush(bkdr Bkdr, digest, content []byte) error {
 	leader := ep.leader(bkdr)
 
 	if dbExist(bkdr, digest) {
+		// 1. try push to leader
+		// 2. if error, push to followers
 		err = leader.touch(bkdr, digest)
+		if nil != err {
+			err = ep.touchFollowers(bkdr, digest)
+		}
 	} else {
 		// 1. try push to leader
 		// 2. if error, push to followers

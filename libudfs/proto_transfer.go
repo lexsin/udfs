@@ -28,10 +28,10 @@ func (me *ProtoTransfer) String() string {
 		hex.EncodeToString(me.content))
 }
 
-const ProtoTransferFixedSize = 4 * SizeofInt32
+const sizeofProtoTransferFixed = 4 * SizeofInt32
 
 func (me *ProtoTransfer) FixedSize() int {
-	return ProtoTransferFixedSize
+	return sizeofProtoTransferFixed
 }
 
 func (me *ProtoTransfer) Size() int {
