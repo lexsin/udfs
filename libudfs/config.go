@@ -124,7 +124,7 @@ func initThisNodeID() {
 	if InvalidID == thisNodeID {
 		Log.Error("etcd config nodes not include this-host:%s", thisHost)
 
-		os.Exit(StdErrError)
+		panic(StdErrError)
 	}
 }
 
@@ -166,16 +166,16 @@ func getEtcd(path string, timeout time.Duration) ([]byte, error) {
 func initConf() {
 	buf, err := getEtcd(ETCD_UDFS_CONFIG, etcdTimeout)
 	if nil != err {
-		os.Exit(StdErrError)
+		panic(StdErrError)
 	}
 
 	err = json.Unmarshal(buf, conf)
 	if nil != err {
 		Log.Error("etcd to json error:%s", err.Error())
 
-		os.Exit(StdErrError)
+		panic(StdErrError)
 	} else if errno := conf.check(); 0 != errno {
-		os.Exit(errno)
+		panic(errno)
 	}
 
 	conf.setDefault()
@@ -187,7 +187,7 @@ func getEnv(name string) string {
 	if Empty == v {
 		Log.Error("no ENV:%s", ENV_THIS_HOME)
 
-		os.Exit(StdErrNoEnv)
+		panic(StdErrNoEnv)
 	}
 
 	return v
@@ -203,7 +203,7 @@ func initEnv() {
 	if Empty == etcdNodeList {
 		Log.Error("empty etcd node list")
 
-		os.Exit(StdErrError)
+		panic(StdErrError)
 	} else {
 		etcdNodes = strings.Split(etcdNodeList, ",")
 	}

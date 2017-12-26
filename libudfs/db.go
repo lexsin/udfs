@@ -184,7 +184,7 @@ func initDb(role Role) {
 	if role != roleConsumer {
 		bdb, err := bolt.Open(conf.DbFileName.Abs().String(), 0755, nil)
 		if nil != err {
-			os.Exit(StdErrBadFile)
+			panic(StdErrBadFile)
 		}
 
 		db = bdb

@@ -36,7 +36,7 @@ func newEndPoint(role Role) *EndPoint {
 		if nil != err {
 			Log.Error("listen port:%d error:%v", conf.Port, err)
 
-			os.Exit(StdErrListen)
+			panic(StdErrListen)
 		}
 		ep.listener = listener
 	}
